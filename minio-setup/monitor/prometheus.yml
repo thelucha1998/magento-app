@@ -1,0 +1,21 @@
+scrape_configs:
+- job_name: minio-job
+  bearer_token: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoiNk9pc1hUYkdLR0t4dEZQaVZFNksiLCJleHAiOjQ4ODQ0NjY5MTh9.n6RA0k23mhS_aY_1CQl3Hcep3svKpngadk8kTI_zPOpKLgCK5ozynBjj2EWywqvYznXDPXINr18ueRt_8858BA
+  metrics_path: /minio/v2/metrics/cluster
+  scheme: http
+  static_configs:
+  - targets: ['nginx:9000']
+
+- job_name: minio-job-bucket
+  bearer_token: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoiNk9pc1hUYkdLR0t4dEZQaVZFNksiLCJleHAiOjQ4ODQ0NzgxNjZ9.ScQfziupa1uqNi8QjWnCZb_tHzvEKNNy5PknTHP6GAkcIo2CGbbJCOd5CI4EKTJgE0MUR5B7qlUH1W3BNwwYPg
+  metrics_path: /minio/v2/metrics/bucket
+  scheme: http
+  static_configs:
+  - targets: ['nginx:9000']
+
+- job_name: minio-job-node
+  bearer_token: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoiNk9pc1hUYkdLR0t4dEZQaVZFNksiLCJleHAiOjQ4ODQ0NzgyMTF9.s7_FBKQftQVjkpsbJ-TVBVh9H41Ga1CBPpQWoL7uwqHatSibZyLxvXqCmWS0lmy8NpplIukm4JTFtrQnNU5qGw
+  metrics_path: /minio/v2/metrics/node
+  scheme: http
+  static_configs:
+  - targets: ['nginx:9000']

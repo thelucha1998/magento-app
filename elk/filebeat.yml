@@ -1,0 +1,20 @@
+filebeat.modules:
+  - module: system
+    syslog:
+      enabled: true
+      var.paths: ["/var/log/syslog*"]
+  - module: system
+    auth:
+      enabled: true
+      var.paths: ["/var/log/auth.log*"]
+filebeat.inputs:
+- input_type: log
+  enabled: true
+  paths:
+    - /var/log/*log
+#output.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+setup.kibana:
+  host: ["http://kibana:5601"]
+output.logstash:
+  hosts: ["logstash:5044"]

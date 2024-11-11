@@ -1,0 +1,83 @@
+ ### INstall ELK Stack
+version: '3.8'
+services:
+  ## Elasticsearch
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.1  
+    ports:
+      - 9201:9200
+    restart: always
+    networks:
+      - es-net
+    volumes:
+      - ../elk/esdata:/usr/share/elasticsearch/data
+      - ../elk/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    environment:
+      - discovery.type=single-node
+      - http.host=0.0.0.0
+      - transport.host=0.0.0.0
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - cluster.name=elasticsearch
+      - bootstrap.memory_lock=true
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=elastic
+   
+  # Logstash
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    container_name: logstash 
+    #command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+    command: logstash -f /usr/share/logstash/pipeline/logstash-beat.conf
+    volumes:
+      - ../elk/logstash/pipeline:/usr/share/logstash/pipeline
+      - ../elk/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ../elk/ls_data:/usr/share/logstash/data
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    networks:
+      - es-net
+    user: root
+    depends_on:
+      - elasticsearch
+
+  ## Kibana
+  kibana:
+    container_name: kibana
+    image: elastic/kibana:7.9.1
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=elastic
+    volumes:
+      - ../elk/kibana.yml:/usr/share/kibana/config/kibana.yml
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5602:5601
+    networks:
+      - es-net
+  # Filebeat
+  filebeat:
+    image: elastic/filebeat:7.14.0
+    container_name: filebeat
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ../elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log/syslog:/var/log/syslog:ro
+      - /var/log/auth.log:/var/log/auth.log:ro
+    networks:
+      - es-net
+    depends_on:
+      - elasticsearch
+      - kibana
+       
+networks:
+   es-net:
+       driver: bridge
+       #external: true

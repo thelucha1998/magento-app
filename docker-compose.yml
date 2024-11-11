@@ -1,0 +1,187 @@
+version: '3.7'
+services:
+  web:
+    image: webdevops/php-apache-dev:8.2
+    container_name: web
+    restart: always
+    environment:
+      - WEB_ALIAS_DOMAIN=magento.test
+      - WEB_DOCUMENT_ROOT=/app/pub
+      - PHP_DATE_TIMEZONE=EST
+      - PHP_DISPLAY_ERRORS=1
+      - PHP_MEMORY_LIMIT=2048M
+      - PHP_MAX_EXECUTION_TIME=300
+      - PHP_POST_MAX_SIZE=500M
+      - PHP_UPLOAD_MAX_FILESIZE=1024M
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - .:/app:cached
+    ports:
+      - "80:80"
+      - "443:443"
+    links:
+      - mysql
+      - redis
+    networks:
+      - web
+  mysql:
+    image: mariadb:10.2
+    container_name: mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=magento
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - web
+  phpmyadmin:
+    container_name: phpmyadmin
+    restart: always
+    image: phpmyadmin/phpmyadmin:latest
+    networks:
+      - web
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - PMA_USER=root
+      - PMA_PASSWORD=root
+      - PMA_ARBITRARY=1
+    ports:
+      - "8080:80"
+    links:
+      - mysql
+    depends_on:
+      - mysql
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379
+    #command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    command: redis-server /etc/redis/redis.conf
+    volumes:
+      #- redis-data:/data
+      #- /path/to/local/dаta:/root/redis
+      #- /path/to/local/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/redis.conf:/etc/redis/redis.conf
+      - cache:/data
+    environment:
+      - REDIS_PASSWORD=redis
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=16
+    networks:
+      - web
+  redisinsight:
+    container_name: redisinsight
+    image: redis/redisinsight:latest
+    ports:
+      - 5541:5540
+    restart: always
+    networks:
+      - web
+
+  ### INstall ELK Stack
+
+  ## Elasticsearch
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.1  
+    ports:
+      - 9201:9200
+    restart: always
+    networks:
+      - es-net
+      - web
+    volumes:
+      - ./elk/esdata:/usr/share/elasticsearch/data
+      - ./elk/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    environment:
+      - discovery.type=single-node
+      - http.host=0.0.0.0
+      - transport.host=0.0.0.0
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - cluster.name=elasticsearch
+      - bootstrap.memory_lock=true
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=elastic
+   
+  # Logstash
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    container_name: logstash 
+    #command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+    command: logstash -f /usr/share/logstash/pipeline/logstash-beat.conf
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./elk/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./elk/ls_data:/usr/share/logstash/data
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    networks:
+      - es-net
+      - web
+    user: root
+    depends_on:
+      - elasticsearch
+
+  ## Kibana
+  kibana:
+    container_name: kibana
+    image: elastic/kibana:7.9.1
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=elastic
+    volumes:
+      - ./elk/kibana.yml:/usr/share/kibana/config/kibana.yml
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5602:5601
+    networks:
+      - es-net
+      - web
+  # Filebeat
+  filebeat:
+    image: elastic/filebeat:7.14.0
+    container_name: filebeat
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log/syslog:/var/log/syslog:ro
+      - /var/log/auth.log:/var/log/auth.log:ro
+    networks:
+      - es-net
+      - web
+    depends_on:
+      - elasticsearch
+      - kibana
+
+volumes:
+   db-data:
+       external: false
+   #redis-data:
+   #    external: true
+   cache:
+       driver: local
+       
+networks:
+   es-net:
+       driver: bridge
+       #external: true
+   web:
+       driver: bridge
+       #external: true
+       #name: elk-network

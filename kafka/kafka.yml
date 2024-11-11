@@ -1,0 +1,58 @@
+version: "3"
+
+services:
+  zookeeper2:
+    image: bitnami/zookeeper:3.7.0
+    container_name: zookeeper2
+    ports:
+      - "2182:2181"
+    networks:
+      - kafkanet
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - ./.bitnami/zookeeper/data:/bitnami/zookeeper/data
+  kafka2:
+    image: bitnami/kafka:2.8.1
+    container_name: kafka2
+    expose:
+      - 9092
+    ports:
+      - "9094:9093"
+    networks:
+      - kafkanet
+      - sharednet
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_BROKER_ID=0
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=CLIENT
+    volumes:
+      - ./.bitnami/kafka/data:/bitnami/kafka/data
+      - ./.bitnami/kafka/logs:/opt/bitnami/kafka/logs
+    depends_on:
+      - zookeeper2
+  kafka-ui2:
+    image: provectuslabs/kafka-ui:master
+    container_name: kafka-ui2
+    ports:
+      - "8081:8080"
+    networks:
+      - kafkanet
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - zookeeper2
+      - kafka2
+
+networks:
+  kafkanet:
+    name: kafka-network
+  sharednet:
+    name: mysharednetwork
+    driver: bridge
